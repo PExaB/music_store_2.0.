@@ -1,0 +1,15 @@
+{% extends "admin/change_list.html" %}
+
+{% block result_list %}
+    {{ block.super }}
+    <table class="table totals-table">
+        <tr>
+            <!-- colspan подгони так, чтобы текст Итого был под нужной колонкой -->
+            <td colspan="1" style="text-align: right;"><strong>Итого:</strong></td>
+            <!-- здесь был total_qty — убираем его совсем -->
+            <td style="text-align: right;">
+                <strong>{{ totals.total_revenue }} руб.</strong>
+            </td>
+        </tr>
+    </table>
+{% endblock %}

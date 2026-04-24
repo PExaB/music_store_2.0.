@@ -1,0 +1,72 @@
+import json
+import traceback
+from django.http import JsonResponse
+from django.views.decorators.csrf import csrf_exempt
+from .gigachat_service import GigaChatService
+import re
+from .models import ChatSession, ChatMessage
+
+
+def clean_response(text):
+    phrases_to_remove = [
+        r'\.?\s*К сожалению, (?:в (?:нашем )?каталоге|детальной информации о характеристиках в нашем каталоге) нет[^.]*\.?',
+        r'\.?\s*Характеристики не указаны в каталоге\.*',
+        r'\.?\s*В каталоге: не указана[^.]*\.?',
+        r'\.?\s*В каталоге: [^.]*\.?',
+        r'\.?\s*Провожу дополнительный поиск[^.]*\.?',
+        r'\.?\s*\(выполняется поиск в интернете\)',
+        r'\.?\s*\(выполняю `search_web`[^)]*\)',
+        r'\.?\s*По данным из интернета:\s*',
+        r'\.?\s*Источник: [^.]*\.?',
+        r'\.?\s*В базе не указано[^.]*\.?',
+        r'\.?\s*…\s*\(выполняю[^)]*\)',
+        r'\.?\s*Поиск в интернете:',
+        r'\.?\s*Информация из интернета:',
+    ]
+    for phrase in phrases_to_remove:
+        text = re.sub(phrase, '', text, flags=re.IGNORECASE)
+    # Убираем лишние точки и пробелы
+    text = re.sub(r'\.{2,}', '.', text)
+    text = re.sub(r'\n\s*\n', '\n', text).strip()
+    return text
+
+@csrf_exempt
+def chat_api(request):
+    if request.method == 'POST':
+        try:
+            # Создаём сессию, если её ещё нет
+            if not request.session.session_key:
+                request.session.create()
+            data = json.loads(request.body)
+            user_message = data.get('message', '').strip()
+            session_id = data.get('session_id', request.session.session_key or 'anonymous')
+            chat_history = data.get('history', [])
+
+            if not user_message:
+                return JsonResponse({'error': 'Сообщение не может быть пустым'}, status=400)
+
+            service = GigaChatService()
+            response_text, products = service.process_message_with_products(user_message, session_id, chat_history)
+
+            return JsonResponse({
+                'response': clean_response(response_text),
+                'products': products,
+                'session_id': session_id
+            })
+        except Exception as e:
+            traceback.print_exc()
+            return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
+    return JsonResponse({'error': 'Method not allowed'}, status=405)
+
+def get_chat_history(request):
+    session_id = request.GET.get('session_id', 'anonymous')
+    try:
+        session = ChatSession.objects.get(session_key=session_id)
+        messages = ChatMessage.objects.filter(session=session).order_by('created_at')
+        history = []
+        for msg in messages:
+            if msg.role in ('user', 'assistant'):
+                history.append({'role': msg.role, 'content': msg.content})
+        return JsonResponse({'history': history})
+    except ChatSession.DoesNotExist:
+        return JsonResponse({'history': []})

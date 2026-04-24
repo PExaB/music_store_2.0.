@@ -1,0 +1,241 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Music Store - {{ product.name }}{% endblock %}
+
+{% block content %}
+<div class="container">
+    <div class="row">
+        <!-- Изображение товара -->
+        <div class="col-md-6">
+            {% if product.image %}
+                <img src="{{ product.image.url }}" class="img-fluid rounded shadow" alt="{{ product.name }}">
+            {% else %}
+                <img src="{% static 'img/no-image.jpg' %}" class="img-fluid rounded" alt="No image">
+            {% endif %}
+            
+            <!-- Дополнительные изображения -->
+            {% if product.images.all %}
+            <div class="row mt-3">
+                {% for image in product.images.all %}
+                <div class="col-3">
+                    <img src="{{ image.image.url }}" 
+                        class="img-thumbnail {% if forloop.first %}active{% endif %}" 
+                        alt="{{ image.alt_text|default:product.name }}"
+                        style="cursor: pointer; transition: all 0.3s ease;">
+                </div>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        
+        <!-- Информация о товаре -->
+        <div class="col-md-6">
+            <h1 class="mb-3">{{ product.name }}</h1>
+            
+            <!-- Бренд и категория -->
+            <div class="mb-3">
+                {% if product.brand %}
+                <span class="badge bg-secondary me-2">{{ product.brand.name }}</span>
+                {% endif %}
+                <span class="text-muted">Категория: {{ product.category.name }}</span>
+            </div>
+            
+            <!-- Цена -->
+            <div class="mb-4">
+                {% if product.is_on_sale %}
+                <div class="d-flex align-items-center">
+                    <span class="text-muted text-decoration-line-through fs-5 me-3">{{ product.old_price }} руб.</span>
+                    <span class="text-primary fw-bold fs-3">{{ product.price }} руб.</span>
+                    <span class="badge bg-danger ms-2 fs-6">-{{ product.discount_percentage }}%</span>
+                </div>
+                {% else %}
+                <span class="text-primary fw-bold fs-3">{{ product.price }} руб.</span>
+                {% endif %}
+            </div>
+            
+            <!-- Наличие -->
+            <div class="mb-4">
+                {% if product.in_stock %}
+                <span class="badge bg-success fs-6 p-2">
+                    <i class="fas fa-check"></i> In stock ({{ product.stock_quantity }} шт.)
+                </span>
+                {% else %}
+                <span class="badge bg-secondary fs-6 p-2">
+                    <i class="fas fa-times"></i> Нет в наличии
+                </span>
+                {% endif %}
+            </div>
+            
+            <!-- Кнопки действий -->
+            <div class="mb-4">
+                {% if product.in_stock %}
+                <form method="post" action="{% url 'store:cart_add' product.id %}" class="d-grid gap-2">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary btn-lg py-3">
+                        <i class="fas fa-cart-plus"></i> Add to cart
+                    </button>
+                </form>
+                {% else %}
+                <button class="btn btn-secondary btn-lg py-3 w-100" disabled>
+                    <i class="fas fa-times"></i> Нет в наличии
+                </button>
+                {% endif %}
+            </div>
+            
+            <!-- Быстрые характеристики -->
+            <div class="card mb-4">
+                <div class="card-header">
+                    <h5 class="mb-0">Characteristics</h5>
+                </div>
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-6">
+                            <small class="text-muted">Type instrument:</small>
+                            <p class="mb-2">{{ product.get_instrument_type_display }}</p>
+                        </div>
+                        <div class="col-6">
+                            <small class="text-muted">State:</small>
+                            <p class="mb-2">{{ product.get_condition_display }}</p>
+                        </div>
+                        {% if product.weight %}
+                        <div class="col-6">
+                            <small class="text-muted">Вес:</small>
+                            <p class="mb-2">{{ product.weight }} кг</p>
+                        </div>
+                        {% endif %}
+                        {% if product.dimensions %}
+                        <div class="col-6">
+                            <small class="text-muted">Габариты:</small>
+                            <p class="mb-2">{{ product.dimensions }}</p>
+                        </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+
+    <!-- Детальное описание и характеристики (табы) -->
+    <div class="row mt-5">
+        <div class="col-12">
+            <ul class="nav nav-tabs" id="productTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="description-tab" data-bs-toggle="tab" data-bs-target="#description" type="button" role="tab">
+                        Описание
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="features-tab" data-bs-toggle="tab" data-bs-target="#features" type="button" role="tab">
+                        Характеристики
+                    </button>
+                </li>
+            </ul>
+            
+            <div class="tab-content p-4 border border-top-0 rounded-bottom" id="productTabsContent">
+                <div class="tab-pane fade show active" id="description" role="tabpanel">
+                    {% if product.description %}
+                    <p>{{ product.description|linebreaks }}</p>
+                    {% else %}
+                    <p class="text-muted">Описание товара пока отсутствует.</p>
+                    {% endif %}
+                </div>
+                
+                <div class="tab-pane fade" id="features" role="tabpanel">
+                    {% if product.features %}
+                    <pre class="mb-0" style="white-space: pre-wrap; font-family: inherit;">{{ product.features }}</pre>
+                    {% else %}
+                    <p class="text-muted">Характеристики товара пока отсутствуют.</p>
+                    {% endif %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Рейтинг и отзывы -->
+    <div class="row mt-5">
+        <div class="col-md-6 mb-4">
+            <h4>Рейтинг товара</h4>
+            {% if avg_rating %}
+                <p class="fs-4 mb-1">
+                    {{ avg_rating|floatformat:1 }} / 5
+                </p>
+                <p class="text-muted">
+                    На основе {{ reviews|length }} отзыв(ов)
+                </p>
+            {% else %}
+                <p class="text-muted">Пока нет оценок.</p>
+            {% endif %}
+        </div>
+
+        <div class="col-md-6 mb-4">
+            <h4>Оставить отзыв</h4>
+            {% if user.is_authenticated %}
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="id_rating" class="form-label">Оценка</label>
+                        <select name="rating" id="id_rating" class="form-select" required>
+                            <option value="">Выберите оценку</option>
+                            {% for i in "12345" %}
+                                <option value="{{ forloop.counter }}">{{ forloop.counter }} ★</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="mb-3">
+                        <label for="id_comment" class="form-label">Комментарий</label>
+                        <textarea name="comment" id="id_comment" rows="4" class="form-control" required></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary">
+                        Отправить отзыв
+                    </button>
+                </form>
+            {% else %}
+                <p class="text-muted">
+                    Только зарегистрированные пользователи могут оставлять отзывы.
+                    <a href="{% url 'users:login' %}?next={{ request.path }}">Войдите</a>, чтобы написать отзыв.
+                </p>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Список отзывов -->
+    <div class="row mt-3">
+        <div class="col-12">
+            <h4>Отзывы покупателей</h4>
+            {% if reviews %}
+                {% for review in reviews %}
+                    <div class="border rounded p-3 mb-3">
+                        <div class="d-flex justify-content-between">
+                            <strong>{{ review.user.username }}</strong>
+                            <span class="text-warning">
+                                {% for i in "12345" %}
+                                    {% if forloop.counter <= review.rating %}
+                                        ★
+                                    {% else %}
+                                        ☆
+                                    {% endif %}
+                                {% endfor %}
+                            </span>
+                        </div>
+                        <small class="text-muted">
+                            {{ review.created_at|date:"d.m.Y H:i" }}
+                        </small>
+                        <p class="mt-2 mb-0">{{ review.comment }}</p>
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p class="text-muted">Отзывов пока нет. Будьте первым!</p>
+            {% endif %}
+        </div>
+    </div>
+    
+</div>
+{% endblock %}
+
+{% load static %}
+{% block extra_js %}
+<script src="{% static 'js/product-tabs.js' %}"></script>
+<script src="{% static 'js/product-gallery.js' %}"></script>
+{% endblock %}

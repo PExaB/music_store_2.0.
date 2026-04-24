@@ -189,7 +189,7 @@ class GigaChatService:
                         messages.append(Messages(
                             role=MessagesRole.ASSISTANT,
                             content="",
-                            function_call=FunctionCall(name=msg.function_name, arguments="{}")
+                            function_call=FunctionCall(name=msg.function_name, arguments={})
                         ))
                         messages.append(Messages(
                             role=MessagesRole.FUNCTION,

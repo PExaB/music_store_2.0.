@@ -48,6 +48,20 @@ def chat_api(request):
             service = GigaChatService()
             response_text, products = service.process_message_with_products(user_message, session_id, chat_history)
 
+            # Получаем сессию чата (она уже создана внутри process_message_with_products)
+            try:
+                chat_session = ChatSession.objects.get(session_key=session_id)
+            except ChatSession.DoesNotExist:
+                # Если по какой-то причине не создана - создаём
+                chat_session = ChatSession.objects.create(session_key=session_id)
+
+            # Сохраняем товары
+            if products:
+                chat_session.last_products = json.dumps(products, ensure_ascii=False)
+            else:
+                chat_session.last_products = None
+            chat_session.save()
+
             return JsonResponse({
                 'response': clean_response(response_text),
                 'products': products,
@@ -62,11 +76,14 @@ def get_chat_history(request):
     session_id = request.GET.get('session_id', 'anonymous')
     try:
         session = ChatSession.objects.get(session_key=session_id)
-        messages = ChatMessage.objects.filter(session=session).order_by('created_at')
-        history = []
-        for msg in messages:
-            if msg.role in ('user', 'assistant'):
-                history.append({'role': msg.role, 'content': msg.content})
-        return JsonResponse({'history': history})
     except ChatSession.DoesNotExist:
-        return JsonResponse({'history': []})
+        return JsonResponse({'history': [], 'products': []})
+    messages = ChatMessage.objects.filter(session=session).order_by('created_at')
+    history = [{'role': m.role, 'content': m.content} for m in messages if m.role in ('user', 'assistant')]
+    products = []
+    if session.last_products:
+        try:
+            products = json.loads(session.last_products)
+        except:
+            pass
+    return JsonResponse({'history': history, 'products': products})

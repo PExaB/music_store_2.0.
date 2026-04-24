@@ -192,15 +192,36 @@
             try {
                 const response = await fetch(`/chat/api/chat/history/?session_id=${sessionId}`);
                 const data = await response.json();
-                // Очищаем текущий лог и chatHistory
+                // Очищаем лог и историю
                 chatLog.innerHTML = '';
                 chatHistory = [];
+                // Восстанавливаем текстовые сообщения
                 if (data.history && data.history.length > 0) {
                     data.history.forEach(msg => {
                         appendMessage(msg.role, msg.content);
                     });
                 } else {
                     if (!welcomeShown) showWelcomeMessage();
+                }
+                // Если сервер вернул товары из последнего ответа – рисуем карточки
+                if (data.products && data.products.length > 0) {
+                    const uniqueProducts = [];
+                    const seenIds = new Set();
+                    for (const p of data.products) {
+                        if (!seenIds.has(p.id)) {
+                            seenIds.add(p.id);
+                            uniqueProducts.push(p);
+                        }
+                    }
+                    const productsContainer = document.createElement('div');
+                    productsContainer.className = 'ai-products-container';
+                    uniqueProducts.forEach(product => {
+                        const card = createProductCard(product);
+                        productsContainer.appendChild(card);
+                    });
+                    // Добавляем карточки в конец чат-лога (не в последнее сообщение)
+                    chatLog.appendChild(productsContainer);
+                    chatLog.scrollTop = chatLog.scrollHeight;
                 }
             } catch (e) {
                 console.error('Failed to load history', e);

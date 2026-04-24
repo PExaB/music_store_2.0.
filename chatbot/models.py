@@ -13,6 +13,7 @@ class ChatSession(models.Model):
     session_key = models.CharField(max_length=40, unique=True)
     created_at = models.DateTimeField(default=timezone.now)   # изменено
     updated_at = models.DateTimeField(default=timezone.now)   # изменено
+    last_products = models.TextField(blank=True, null=True)  # хранит JSON последних товаров
 
     def __str__(self):
         return f"ChatSession {self.session_key}"

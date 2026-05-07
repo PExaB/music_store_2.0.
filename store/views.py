@@ -48,9 +48,9 @@ def product_list(request):
     )
 
     # Бренды с количеством активных товаров
-    brands = Brand.objects.annotate(
+    brands = Brand.objects.filter(is_active=True).annotate(
         product_count=Count('products', filter=Q(products__is_active=True))
-    ).filter(products__is_active=True).distinct()
+    ).distinct()
 
     context = {
         'products': products,

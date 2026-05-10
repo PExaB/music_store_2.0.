@@ -66,7 +66,11 @@ def product_list(request):
 
 def product_detail(request, product_id):
     """Детальная страница товара с отзывами"""
-    product = get_object_or_404(Product, id=product_id, is_active=True)
+    product = get_object_or_404(
+        Product.objects.select_related('brand', 'category').prefetch_related('images'),
+        id=product_id,
+        is_active=True
+    )
 
     # список одобренных отзывов + средний рейтинг
     reviews = product.reviews.filter(is_approved=True).select_related('user')
@@ -91,10 +95,76 @@ def product_detail(request, product_id):
             )
             return redirect('store:product_detail', product_id=product.id)
 
+    specs = [
+        ("Категория", product.category.name),
+        ("Бренд", product.brand.name if product.brand else None),
+        ("Тип инструмента", product.get_instrument_type_display()),
+        ("Уровень подготовки", product.get_skill_level_display() if product.skill_level else None),
+        ("Состояние", product.get_condition_display()),
+        ("Наличие", f"В наличии, {product.stock_quantity} шт." if product.in_stock else "Нет в наличии"),
+        ("Вес", f"{product.weight} кг" if product.weight else None),
+        ("Габариты", product.dimensions or None),
+    ]
+
+    specs = [(label, value) for label, value in specs if value]
+    feature_lines = [
+        line.strip(" •-")
+        for line in (product.features or "").splitlines()
+        if line.strip(" •-")
+    ]
+
+    instrument_tips = {
+        "guitar": [
+            "Проверьте удобство грифа и высоту струн под свой стиль игры.",
+            "Для электрогитары заранее подберите кабель, медиаторы и подходящий усилитель.",
+            "Новичкам лучше выбирать инструмент с понятной настройкой и стабильным строем.",
+        ],
+        "piano": [
+            "Обратите внимание на количество клавиш, чувствительность к нажатию и наличие педали.",
+            "Для занятий дома полезны выход на наушники и компактная стойка.",
+            "Если инструмент нужен для обучения, важны метроном и обучающие режимы.",
+        ],
+        "drums": [
+            "Уточните размеры установки и место, где она будет стоять.",
+            "Для старта пригодятся палочки, стул и тренировочный пэд.",
+            "Для квартиры лучше рассмотреть электронные барабаны или демпферы.",
+        ],
+        "violin": [
+            "Проверьте размер инструмента, особенно если покупаете для ребенка.",
+            "Смычок, канифоль и чехол лучше подготовить сразу.",
+            "После покупки полезна базовая настройка у мастера.",
+        ],
+        "wind": [
+            "Учитывайте материал корпуса, комплектацию и удобство обслуживания.",
+            "Для регулярной игры понадобится набор для ухода.",
+            "Новичкам лучше выбирать модели с простой механикой и стабильной интонацией.",
+        ],
+        "equipment": [
+            "Проверьте совместимость с вашим инструментом и нужную мощность.",
+            "Для дома важны выход на наушники и компактный размер.",
+            "Для репетиций и сцены лучше брать запас по громкости.",
+        ],
+        "accessories": [
+            "Проверьте совместимость аксессуара с вашим инструментом.",
+            "Для расходников удобно брать запас на несколько месяцев.",
+            "Если сомневаетесь, напишите AI-консультанту, он подберет пару к инструменту.",
+        ],
+    }.get(product.instrument_type, [])
+
+    related_products = Product.objects.filter(
+        is_active=True,
+        in_stock=True,
+        category=product.category,
+    ).exclude(id=product.id).select_related('brand', 'category')[:4]
+
     context = {
         'product': product,
         'reviews': reviews,
         'avg_rating': avg_rating,
+        'specs': specs,
+        'feature_lines': feature_lines,
+        'instrument_tips': instrument_tips,
+        'related_products': related_products,
     }
     return render(request, 'store/product_detail.html', context)
 

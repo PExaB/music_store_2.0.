@@ -18,7 +18,7 @@
                         <li class="mb-2">
                             <a href="{% url 'store:product_list' %}" 
                                class="text-decoration-none {% if not selected_category_ids %}fw-bold text-primary{% endif %}">
-                                All products ({{ products|length }})
+                                Все товары ({{ products|length }})
                             </a>
                         </li>
                         {% for category in categories %}

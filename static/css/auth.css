@@ -13,7 +13,7 @@
     box-shadow: 0 8px 30px rgba(0, 0, 0, 0.12);
     transition: transform 0.3s ease, box-shadow 0.3s ease;
     overflow: hidden;
-    background: #fff;
+    background: var(--ms-surface, #fff);
 }
 
 .auth-card:hover {
@@ -26,7 +26,7 @@
 }
 
 .auth-title {
-    color: #2c3e50;
+    color: var(--ms-text, #2c3e50);
     font-weight: 700;
     margin-bottom: 1.5rem;
     text-align: center;
@@ -36,26 +36,27 @@
 /* Стили для формы */
 .auth-form .form-label {
     font-weight: 600;
-    color: #495057;
+    color: var(--ms-text, #495057);
     margin-bottom: 0.5rem;
     display: block;
 }
 
 .auth-form .form-control {
     padding: 12px 16px;
-    border: 2px solid #e9ecef;
+    border: 2px solid var(--ms-border, #e9ecef);
     border-radius: 8px;
     font-size: 16px;
     transition: all 0.3s ease;
-    background-color: #f8f9fa;
+    background-color: var(--ms-surface-soft, #f8f9fa);
     width: 100%;
     box-sizing: border-box;
 }
 
 .auth-form .form-control:focus {
-    border-color: #007bff;
-    background-color: #fff;
-    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
+    border-color: var(--ms-primary, #007bff);
+    background-color: var(--ms-surface, #fff);
+    color: var(--ms-text, #212529);
+    box-shadow: 0 0 0 0.2rem rgba(37, 87, 214, 0.15);
     outline: none;
 }
 
@@ -65,20 +66,20 @@
     margin: 2rem auto 0 auto !important;
     padding: 14px 32px !important;
     border: none !important;
-    border-radius: 50px !important;
+    border-radius: 12px !important;
     font-size: 17px !important;
     font-weight: 700 !important;
     transition: all 0.4s ease !important;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: var(--ms-primary, #2557d6) !important;
     color: white !important;
     width: auto !important;
     min-width: 200px !important;
     cursor: pointer !important;
     position: relative !important;
     overflow: hidden !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    box-shadow: 0 8px 22px rgba(37, 87, 214, 0.28) !important;
 }
 
 .auth-btn::before {
@@ -95,7 +96,7 @@
 .auth-btn:hover {
     transform: translateY(-3px) !important;
     box-shadow: 0 10px 25px rgba(102, 126, 234, 0.6) !important;
-    background: linear-gradient(135deg, #764ba2 0%, #667eea 100%) !important;
+    background: var(--ms-primary-hover, #1d45ad) !important;
 }
 
 .auth-btn:hover::before {
@@ -114,14 +115,14 @@
 
 /* Ссылки */
 .auth-link {
-    color: #007bff;
+    color: var(--ms-primary, #007bff);
     text-decoration: none;
     font-weight: 500;
     transition: color 0.3s ease;
 }
 
 .auth-link:hover {
-    color: #0056b3;
+    color: var(--ms-primary-hover, #0056b3);
     text-decoration: underline;
 }
 
@@ -191,40 +192,41 @@
 .auth-form textarea {
     width: 100%;
     padding: 12px 16px;
-    border: 2px solid #e9ecef;
+    border: 2px solid var(--ms-border, #e9ecef);
     border-radius: 8px;
     font-size: 16px;
     transition: all 0.3s ease;
-    background-color: #f8f9fa;
+    background-color: var(--ms-surface-soft, #f8f9fa);
     box-sizing: border-box;
 }
 
 .auth-form input:focus,
 .auth-form textarea:focus {
-    border-color: #007bff;
-    background-color: #fff;
+    border-color: var(--ms-primary, #007bff);
+    background-color: var(--ms-surface, #fff);
+    color: var(--ms-text, #212529);
     outline: none;
     box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.15);
 }
 
 /* Убедимся, что кнопка submit имеет правильные стили */
-button[type="submit"] {
+.auth-form button[type="submit"] {
     display: block !important;
     margin: 2rem auto 0 auto !important;
     padding: 14px 32px !important;
     border: none !important;
-    border-radius: 50px !important;
+    border-radius: 12px !important;
     font-size: 17px !important;
     font-weight: 700 !important;
     transition: all 0.4s ease !important;
-    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%) !important;
+    background: var(--ms-primary, #2557d6) !important;
     color: white !important;
     width: auto !important;
     min-width: 200px !important;
     cursor: pointer !important;
     position: relative !important;
     overflow: hidden !important;
-    text-transform: uppercase !important;
-    letter-spacing: 0.5px !important;
-    box-shadow: 0 6px 20px rgba(102, 126, 234, 0.4) !important;
+    text-transform: none !important;
+    letter-spacing: 0 !important;
+    box-shadow: 0 8px 22px rgba(37, 87, 214, 0.28) !important;
 }

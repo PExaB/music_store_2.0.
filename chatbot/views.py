@@ -1,10 +1,40 @@
 import json
 import traceback
+from json import JSONDecodeError
 from django.http import JsonResponse
-from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.csrf import csrf_protect
+from django.views.decorators.http import require_GET, require_POST
 from .gigachat_service import GigaChatService
 import re
 from .models import ChatSession, ChatMessage
+
+MAX_MESSAGE_LENGTH = 1000
+MAX_HISTORY_ITEMS = 20
+MAX_HISTORY_CONTENT_LENGTH = 2000
+
+
+def normalize_chat_history(raw_history):
+    if not isinstance(raw_history, list):
+        return []
+
+    normalized = []
+    for item in raw_history[-MAX_HISTORY_ITEMS:]:
+        if not isinstance(item, dict):
+            continue
+
+        role = item.get('role')
+        content = item.get('content')
+        if role not in ('user', 'assistant') or not isinstance(content, str):
+            continue
+
+        content = content.strip()
+        if content:
+            normalized.append({
+                'role': role,
+                'content': content[:MAX_HISTORY_CONTENT_LENGTH],
+            })
+
+    return normalized
 
 
 def clean_response(text):
@@ -30,70 +60,82 @@ def clean_response(text):
     text = re.sub(r'\n\s*\n', '\n', text).strip()
     return text
 
-@csrf_exempt
+@require_POST
+@csrf_protect
 def chat_api(request):
-    if request.method == 'POST':
+    try:
+        if not request.session.session_key:
+            request.session.create()
+
         try:
-            if not request.session.session_key:
-                request.session.create()
+            data = json.loads(request.body or '{}')
+        except JSONDecodeError:
+            return JsonResponse({'error': 'Некорректный JSON'}, status=400)
 
-            data = json.loads(request.body)
-            user_message = data.get('message', '').strip()
-            chat_history = data.get('history', [])
+        user_message = data.get('message', '')
+        if not isinstance(user_message, str):
+            return JsonResponse({'error': 'Сообщение должно быть строкой'}, status=400)
 
-            if not user_message:
-                return JsonResponse({'error': 'Сообщение не может быть пустым'}, status=400)
+        user_message = user_message.strip()
+        chat_history = normalize_chat_history(data.get('history', []))
 
-            is_auth = request.user.is_authenticated
+        if not user_message:
+            return JsonResponse({'error': 'Сообщение не может быть пустым'}, status=400)
 
-            if is_auth:
-                # История привязана к пользователю, а не к localStorage
-                session_id = f"user_{request.user.id}"
-            else:
-                # Для анонимных используем временный id, но не сохраняем историю
-                session_id = f"anon_{request.session.session_key}"
+        if len(user_message) > MAX_MESSAGE_LENGTH:
+            return JsonResponse({
+                'error': f'Сообщение слишком длинное. Максимум {MAX_MESSAGE_LENGTH} символов'
+            }, status=400)
 
-                # На всякий случай удаляем старую анонимную историю
-                ChatSession.objects.filter(session_key=session_id).delete()
+        is_auth = request.user.is_authenticated
 
-            service = GigaChatService()
-            response_text, products = service.process_message_with_products(
-                user_message,
-                session_id,
-                chat_history
+        if is_auth:
+            # История привязана к пользователю, а не к localStorage
+            session_id = f"user_{request.user.id}"
+        else:
+            # Для анонимных используем временный id, но не сохраняем историю
+            session_id = f"anon_{request.session.session_key}"
+
+            # На всякий случай удаляем старую анонимную историю
+            ChatSession.objects.filter(session_key=session_id).delete()
+
+        service = GigaChatService()
+        response_text, products = service.process_message_with_products(
+            user_message,
+            session_id,
+            chat_history
+        )
+
+        if is_auth:
+            chat_session, _ = ChatSession.objects.get_or_create(
+                session_key=session_id,
+                defaults={'user': request.user}
             )
 
-            if is_auth:
-                chat_session, _ = ChatSession.objects.get_or_create(
-                    session_key=session_id,
-                    defaults={'user': request.user}
-                )
+            if chat_session.user_id != request.user.id:
+                chat_session.user = request.user
 
-                if chat_session.user_id != request.user.id:
-                    chat_session.user = request.user
+            if products:
+                chat_session.last_products = json.dumps(products, ensure_ascii=False)
 
-                if products:
-                    chat_session.last_products = json.dumps(products, ensure_ascii=False)
+            chat_session.save()
+        else:
+            # Удаляем всё, что service успел сохранить для анонима
+            ChatSession.objects.filter(session_key=session_id).delete()
 
-                chat_session.save()
-            else:
-                # Удаляем всё, что service успел сохранить для анонима
-                ChatSession.objects.filter(session_key=session_id).delete()
+        return JsonResponse({
+            'response': clean_response(response_text),
+            'products': products,
+            'session_id': session_id if is_auth else 'anonymous',
+            'authenticated': is_auth,
+        })
 
-            return JsonResponse({
-                'response': clean_response(response_text),
-                'products': products,
-                'session_id': session_id if is_auth else 'anonymous',
-                'authenticated': is_auth,
-            })
-
-        except Exception as e:
-            traceback.print_exc()
-            return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
-
-    return JsonResponse({'error': 'Method not allowed'}, status=405)
+    except Exception as e:
+        traceback.print_exc()
+        return JsonResponse({'error': f'Server error: {str(e)}'}, status=500)
 
 
+@require_GET
 def get_chat_history(request):
     if not request.user.is_authenticated:
         return JsonResponse({

@@ -30,6 +30,11 @@
         let chatHistory = [];
         let lastProducts = [];
         let welcomeShown = false;
+        const quickPrompts = [
+            'Подбери электрогитару до 50000',
+            'Нужна акустическая гитара для новичка',
+            'Покажи товары Yamaha'
+        ];
 
         // Очистка при полной перезагрузке для анонимов
         const navEntry = performance.getEntriesByType('navigation')[0];
@@ -42,6 +47,7 @@
             const welcomeDiv = document.createElement('div');
             welcomeDiv.classList.add('ai-message', 'assistant');
             welcomeDiv.textContent = '👋 Здравствуйте! Я AI-консультант магазина музыкальных инструментов «Music Store». Могу помочь подобрать инструмент, исходя из вашего уровня подготовки, бюджета и предпочтений. Задайте вопрос!';
+            renderQuickActions(welcomeDiv);
             chatLog.appendChild(welcomeDiv);
             chatLog.scrollTop = chatLog.scrollHeight;
             welcomeShown = true;
@@ -66,6 +72,29 @@
                 }
             }
             return cookieValue;
+        }
+
+        function getCsrfToken() {
+            return getCookie('csrftoken') || window.AI_CHAT_CSRF_TOKEN || '';
+        }
+
+        function renderQuickActions(parentElement) {
+            const actions = document.createElement('div');
+            actions.className = 'ai-quick-actions';
+
+            quickPrompts.forEach(prompt => {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'ai-quick-action';
+                button.textContent = prompt;
+                button.addEventListener('click', () => {
+                    chatInput.value = prompt;
+                    sendMessage();
+                });
+                actions.appendChild(button);
+            });
+
+            parentElement.appendChild(actions);
         }
 
         function appendMessage(role, content) {
@@ -120,7 +149,7 @@
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
-                        'X-CSRFToken': getCookie('csrftoken')
+                        'X-CSRFToken': getCsrfToken()
                     },
                     body: JSON.stringify({
                         message: finalMessage,
@@ -130,6 +159,11 @@
                 });
 
                 const data = await response.json();
+                if (!response.ok) {
+                    appendMessage('assistant', data.error || 'Извините, произошла ошибка. Попробуйте позже.');
+                    return;
+                }
+
                 if (data.session_id) sessionId = data.session_id;
                 if (typeof data.authenticated !== 'undefined') isAuthenticated = Boolean(data.authenticated);
 

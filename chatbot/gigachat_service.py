@@ -13,6 +13,7 @@ import re
 from .product_utils import search_products, get_product_details
 
 logger = logging.getLogger(__name__)
+MAX_TOOL_CALLS = 8
 
 SYSTEM_PROMPT = """Ты — AI-консультант магазина «Music Store». Твоя задача — быстро подбирать реальные товары из каталога и предоставлять исчерпывающую информацию, комбинируя данные из базы магазина и интернета.
 
@@ -515,7 +516,7 @@ class GigaChatService:
                 ))
 
         try:
-            while True:
+            for _ in range(MAX_TOOL_CALLS):
                 response = self.client.chat(Chat(
                     messages=messages,
                     functions=self.functions,
@@ -539,10 +540,16 @@ class GigaChatService:
 
                 function_name = response_message.function_call.name
                 raw_args = response_message.function_call.arguments
-                if isinstance(raw_args, str):
-                    function_args = json.loads(raw_args)
-                else:
-                    function_args = raw_args
+                try:
+                    if isinstance(raw_args, str):
+                        function_args = json.loads(raw_args or "{}")
+                    else:
+                        function_args = raw_args or {}
+                except json.JSONDecodeError:
+                    function_args = {}
+
+                if not isinstance(function_args, dict):
+                    function_args = {}
 
                 if function_name in ["get_product_details", "search_web"] and not allow_details and not allow_brand_web:
                     function_result_message = {
@@ -635,6 +642,9 @@ class GigaChatService:
                         content=json.dumps(web_result, ensure_ascii=False),
                         name="search_web"
                     ))
+            else:
+                final_answer = "Я не смог быстро сформировать ответ. Попробуйте уточнить запрос или задать его короче."
+                ChatMessage.objects.create(session=session, role='assistant', content=final_answer)
 
             return final_answer, found_products
 
@@ -656,7 +666,7 @@ class GigaChatService:
         messages.append(Messages(role=MessagesRole.USER, content=user_message))
 
         try:
-            while True:
+            for _ in range(MAX_TOOL_CALLS):
                 response = self.client.chat(Chat(
                     messages=messages,
                     functions=self.functions,
@@ -678,10 +688,16 @@ class GigaChatService:
 
                 function_name = response_message.function_call.name
                 raw_args = response_message.function_call.arguments
-                if isinstance(raw_args, str):
-                    function_args = json.loads(raw_args)
-                else:
-                    function_args = raw_args
+                try:
+                    if isinstance(raw_args, str):
+                        function_args = json.loads(raw_args or "{}")
+                    else:
+                        function_args = raw_args or {}
+                except json.JSONDecodeError:
+                    function_args = {}
+
+                if not isinstance(function_args, dict):
+                    function_args = {}
 
                 # Выполняем функцию и готовим результат
                 if function_name == "search_products":
@@ -744,6 +760,8 @@ class GigaChatService:
                         name="search_web"
                     ))
                 # Цикл продолжается — модель может снова вызвать функцию
+            else:
+                final_answer = "Я не смог быстро сформировать ответ. Попробуйте уточнить запрос или задать его короче."
 
             return final_answer
 

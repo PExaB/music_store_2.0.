@@ -128,6 +128,13 @@
     gap: 14px;
 }
 
+.sales-ai-trend {
+    display: grid;
+    grid-template-columns: minmax(360px, 2fr) minmax(260px, 1fr);
+    gap: 14px;
+    margin-bottom: 14px;
+}
+
 .sales-ai-block {
     padding: 14px;
     border: 1px solid var(--hairline-color);
@@ -187,6 +194,73 @@
     color: var(--body-quiet-color);
 }
 
+.sales-ai-chart {
+    display: grid;
+    grid-template-columns: repeat(8, minmax(44px, 1fr));
+    align-items: end;
+    gap: 10px;
+    min-height: 230px;
+    padding-top: 16px;
+}
+
+.sales-ai-bar-wrap {
+    display: grid;
+    grid-template-rows: 32px 150px 22px;
+    align-items: end;
+    min-width: 0;
+    text-align: center;
+}
+
+.sales-ai-bar-value {
+    align-self: start;
+    overflow: hidden;
+    color: var(--body-quiet-color);
+    font-size: 11px;
+    line-height: 1.2;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.sales-ai-bar {
+    width: 70%;
+    min-height: 8px;
+    margin: 0 auto;
+    border-radius: 6px 6px 0 0;
+    background: var(--link-fg);
+}
+
+.sales-ai-bar-label {
+    margin-top: 6px;
+    color: var(--body-quiet-color);
+    font-size: 12px;
+}
+
+.sales-ai-alerts {
+    display: grid;
+    gap: 10px;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.sales-ai-alerts li {
+    padding: 10px;
+    border: 1px solid var(--hairline-color);
+    border-left: 4px solid #d64545;
+    border-radius: 6px;
+    background: var(--darkened-bg);
+}
+
+.sales-ai-alerts strong,
+.sales-ai-alerts span {
+    display: block;
+}
+
+.sales-ai-alerts span {
+    margin-top: 4px;
+    color: var(--body-quiet-color);
+}
+
 .positive {
     color: #0e9f6e !important;
 }
@@ -203,8 +277,13 @@
 
 @media (max-width: 760px) {
     .sales-ai-metrics,
+    .sales-ai-trend,
     .sales-ai-grid {
         grid-template-columns: 1fr;
+    }
+
+    .sales-ai-chart {
+        grid-template-columns: repeat(4, minmax(44px, 1fr));
     }
 
     .sales-ai-panel {

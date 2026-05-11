@@ -1,4 +1,5 @@
 from django.contrib import admin
+from decimal import Decimal
 from .models import Brand, Category, Product, ProductImage, Order, OrderItem, Review
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Sum
 from rangefilter.filters import DateRangeFilterBuilder
@@ -27,6 +28,7 @@ def build_sales_insights(qs):
     now = timezone.now()
     current_from = now - timezone.timedelta(days=30)
     previous_from = now - timezone.timedelta(days=60)
+    trend_from = now - timezone.timedelta(days=56)
 
     current_qs = qs.filter(order__created_at__gte=current_from)
     previous_qs = qs.filter(order__created_at__gte=previous_from, order__created_at__lt=current_from)
@@ -123,6 +125,35 @@ def build_sales_insights(qs):
         if product['stock_quantity'] <= max(3, product['recent_qty'] // 2)
     ][:3]
 
+    trend_map = {}
+    for row in qs.filter(order__created_at__gte=trend_from).values(
+        'order__created_at',
+    ).annotate(
+        qty=Sum('quantity'),
+        revenue=Sum(REVENUE_EXPR),
+    ):
+        order_date = row['order__created_at']
+        week_start = (order_date - timezone.timedelta(days=order_date.weekday())).date()
+        if week_start not in trend_map:
+            trend_map[week_start] = {'qty': 0, 'revenue': Decimal('0')}
+        trend_map[week_start]['qty'] += row['qty'] or 0
+        trend_map[week_start]['revenue'] += row['revenue'] or 0
+
+    sales_trend = []
+    for week_number in range(7, -1, -1):
+        week_date = (now - timezone.timedelta(days=week_number * 7)).date()
+        week_start = week_date - timezone.timedelta(days=week_date.weekday())
+        values = trend_map.get(week_start, {'qty': 0, 'revenue': Decimal('0')})
+        sales_trend.append({
+            'label': week_start.strftime('%d.%m'),
+            'qty': values['qty'],
+            'revenue': values['revenue'],
+        })
+
+    max_week_revenue = max((item['revenue'] for item in sales_trend), default=0) or 1
+    for item in sales_trend:
+        item['height'] = max(8, int((item['revenue'] / max_week_revenue) * 100)) if item['revenue'] else 8
+
     recommendations = []
     revenue_growth = percent_change(current_revenue, previous_revenue)
     qty_growth = percent_change(current['qty'] or 0, previous['qty'] or 0)
@@ -155,6 +186,7 @@ def build_sales_insights(qs):
         'top_brands': top_brands,
         'product_forecast': product_forecast,
         'low_stock_alerts': low_stock_alerts,
+        'sales_trend': sales_trend,
         'recommendations': recommendations,
     }
 

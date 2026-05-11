@@ -46,6 +46,41 @@
                 </div>
             {% endif %}
 
+            <div class="sales-ai-trend">
+                <div class="sales-ai-block">
+                    <h3>Тренд продаж за 8 недель</h3>
+                    {% if sales_insights.sales_trend %}
+                        <div class="sales-ai-chart" aria-label="Тренд продаж за 8 недель">
+                            {% for week in sales_insights.sales_trend %}
+                                <div class="sales-ai-bar-wrap">
+                                    <div class="sales-ai-bar-value">{{ week.revenue|floatformat:0 }} руб.</div>
+                                    <div class="sales-ai-bar" style="height: {{ week.height }}%;"></div>
+                                    <div class="sales-ai-bar-label">{{ week.label }}</div>
+                                </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <p class="sales-ai-empty">Нет данных для построения тренда.</p>
+                    {% endif %}
+                </div>
+
+                <div class="sales-ai-block">
+                    <h3>Предупреждения по складу</h3>
+                    {% if sales_insights.low_stock_alerts %}
+                        <ul class="sales-ai-alerts">
+                            {% for product in sales_insights.low_stock_alerts %}
+                                <li>
+                                    <strong>{{ product.name }}</strong>
+                                    <span>Продано за 30 дней: {{ product.recent_qty }} шт. Остаток: {{ product.stock_quantity }} шт.</span>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    {% else %}
+                        <p class="sales-ai-empty">Критичных остатков по популярным товарам нет.</p>
+                    {% endif %}
+                </div>
+            </div>
+
             <div class="sales-ai-grid">
                 <div class="sales-ai-block">
                     <h3>Топ товаров</h3>

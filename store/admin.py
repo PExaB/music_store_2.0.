@@ -1,6 +1,7 @@
 from django.contrib import admin
 from django import forms
 from decimal import Decimal
+from chatbot.gigachat_service import GigaChatService
 from .models import Brand, Category, Product, ProductImage, Order, OrderItem, Review
 from .inventory import STOCK_DEDUCTING_STATUSES, StockError, get_order_stock_errors, sync_order_stock_for_status
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Sum
@@ -229,6 +230,63 @@ def build_sales_insights(qs):
     }
 
 
+def build_llm_sales_payload(insights):
+    return {
+        'period': 'последние 30 дней, сравнение с предыдущими 30 днями',
+        'current_revenue': insights['current_revenue'],
+        'previous_revenue': insights['previous_revenue'],
+        'revenue_growth_percent': insights['revenue_growth'],
+        'quantity_growth_percent': insights['qty_growth'],
+        'average_check': insights['average_check'],
+        'cancelled_orders_count': insights['cancelled_orders_count'],
+        'cancelled_qty': insights['cancelled_qty'],
+        'cancelled_revenue': insights['cancelled_revenue'],
+        'cancellation_rate_percent': insights['cancellation_rate'],
+        'top_products': [
+            {
+                'name': item['product__name'],
+                'category': item['product__category__name'],
+                'brand': item['product__brand__name'] or 'Без бренда',
+                'sold_qty': item['sold_qty'],
+                'revenue': item['revenue'],
+                'stock_quantity': item['product__stock_quantity'],
+            }
+            for item in insights['top_products']
+        ],
+        'top_categories': [
+            {
+                'name': item['product__category__name'],
+                'sold_qty': item['sold_qty'],
+                'revenue': item['revenue'],
+            }
+            for item in insights['top_categories']
+        ],
+        'top_brands': [
+            {
+                'name': item['product__brand__name'] or 'Без бренда',
+                'sold_qty': item['sold_qty'],
+                'revenue': item['revenue'],
+            }
+            for item in insights['top_brands']
+        ],
+        'cancelled_products': [
+            {
+                'name': item['product__name'],
+                'category': item['product__category__name'],
+                'brand': item['product__brand__name'] or 'Без бренда',
+                'cancelled_qty': item['cancelled_qty'],
+                'cancelled_orders': item['cancelled_orders'],
+                'cancelled_revenue': item['cancelled_revenue'],
+            }
+            for item in insights['cancelled_products']
+        ],
+        'demand_forecast': insights['product_forecast'],
+        'low_stock_alerts': insights['low_stock_alerts'],
+        'sales_trend': insights['sales_trend'],
+        'rule_based_recommendations': insights['recommendations'],
+    }
+
+
 @admin.register(Brand)
 class BrandAdmin(admin.ModelAdmin):
     list_display = ("name", "country", "is_active", "website")
@@ -385,7 +443,11 @@ class SalesReportAdmin(admin.ModelAdmin):
             total_qty=Sum('quantity'),
             total_revenue=Sum(REVENUE_EXPR),
         )
-        response.context_data['sales_insights'] = build_sales_insights(qs)
+        sales_insights = build_sales_insights(qs)
+        response.context_data['sales_insights'] = sales_insights
+        response.context_data['llm_sales_summary'] = GigaChatService().analyze_sales(
+            build_llm_sales_payload(sales_insights)
+        )
         return response
     
 admin.site.register(Review)

@@ -109,6 +109,28 @@
     color: var(--body-fg);
 }
 
+.sales-ai-llm {
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    border: 1px solid var(--hairline-color);
+    border-left: 4px solid var(--link-fg);
+    border-radius: 6px;
+    background: var(--darkened-bg);
+    color: var(--body-fg);
+}
+
+.sales-ai-llm h3 {
+    margin: 0 0 10px;
+    font-size: 16px;
+    line-height: 1.3;
+    color: var(--body-fg);
+}
+
+.sales-ai-llm p {
+    margin: 0;
+    line-height: 1.55;
+}
+
 .sales-ai-recommendations h3,
 .sales-ai-block h3 {
     margin: 0 0 10px;

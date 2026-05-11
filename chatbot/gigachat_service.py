@@ -83,6 +83,18 @@ SYSTEM_PROMPT = """Ты — AI-консультант магазина «Music S
 
 Помни: твоя сила — в честности, скорости и проактивности. Не затягивай диалог, давай полную информацию сразу."""
 
+SALES_ANALYTICS_PROMPT = """Ты — AI-аналитик интернет-магазина музыкальных инструментов «Music Store».
+Тебе передают агрегированные данные из админки: продажи, отмены, тренды, остатки, популярные товары и прогноз спроса.
+
+Правила:
+1. Не выдумывай цифры, товары, бренды и причины. Используй только переданные данные.
+2. Пиши для администратора магазина коротко и практично.
+3. Дай 4-6 пунктов: что растет, что проседает, какие товары продвигать, какие остатки проверить, на какие отмены обратить внимание.
+4. Отдельно выдели прогноз на ближайший месяц по товарам из данных demand_forecast.
+5. Если данных мало, прямо скажи, каких данных не хватает.
+6. Не используй Markdown-таблицы.
+"""
+
 class GigaChatService:
     def __init__(self):
         # Для локальной разработки можно оставить verify_ssl_certs=False,
@@ -163,6 +175,31 @@ class GigaChatService:
                 }
             )
         ]
+
+    def analyze_sales(self, analytics_data: dict) -> str:
+        messages = [
+            Messages(role=MessagesRole.SYSTEM, content=SALES_ANALYTICS_PROMPT),
+            Messages(
+                role=MessagesRole.USER,
+                content=(
+                    "Проанализируй отчет продаж и сформируй прогнозные рекомендации.\n"
+                    f"Данные:\n{json.dumps(analytics_data, ensure_ascii=False, default=str)}"
+                )
+            )
+        ]
+
+        try:
+            response = self.client.chat(Chat(messages=messages))
+            return response.choices[0].message.content
+        except GigaChatException as e:
+            logger.error(f"GigaChat sales analytics error {e.status_code}: {e}")
+            return "AI-аналитик временно недоступен. Попробуйте открыть отчет позже."
+        except (httpx.TimeoutException, httpx.ConnectError, httpx.NetworkError) as e:
+            logger.error(f"GigaChat sales analytics network error: {e}")
+            return "AI-аналитик временно недоступен из-за ошибки сети. Попробуйте позже."
+        except Exception:
+            logger.exception("Unexpected sales analytics error")
+            return "Не удалось сформировать AI-прогноз. Проверьте настройки GigaChat и повторите попытку."
 
     def _run_search_web(self, q: str):
         q = " ".join(q.split())

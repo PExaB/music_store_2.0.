@@ -10,6 +10,13 @@
                 </div>
             </div>
 
+            {% if llm_sales_summary %}
+                <div class="sales-ai-llm">
+                    <h3>LLM-прогноз и рекомендации</h3>
+                    <p>{{ llm_sales_summary|linebreaksbr }}</p>
+                </div>
+            {% endif %}
+
             <div class="sales-ai-metrics">
                 <div class="sales-ai-card">
                     <span>Выручка за 30 дней</span>

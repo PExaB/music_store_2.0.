@@ -32,8 +32,10 @@ def build_sales_insights(qs):
     previous_from = now - timezone.timedelta(days=60)
     trend_from = now - timezone.timedelta(days=56)
 
-    current_qs = qs.filter(order__created_at__gte=current_from)
-    previous_qs = qs.filter(order__created_at__gte=previous_from, order__created_at__lt=current_from)
+    sales_qs = qs.filter(order__status__in=['paid', 'delivered'])
+    cancelled_qs = qs.filter(order__status='cancelled')
+    current_qs = sales_qs.filter(order__created_at__gte=current_from)
+    previous_qs = sales_qs.filter(order__created_at__gte=previous_from, order__created_at__lt=current_from)
 
     current = current_qs.aggregate(
         qty=Sum('quantity'),
@@ -51,8 +53,18 @@ def build_sales_insights(qs):
     current_orders = current['orders'] or 0
     average_check = current_revenue / current_orders if current_orders else 0
 
+    cancelled = cancelled_qs.aggregate(
+        qty=Sum('quantity'),
+        revenue=Sum(REVENUE_EXPR),
+        orders=Count('order', distinct=True),
+    )
+    active_orders_count = sales_qs.values('order_id').distinct().count()
+    cancelled_orders_count = cancelled['orders'] or 0
+    all_orders_count = active_orders_count + cancelled_orders_count
+    cancellation_rate = round((cancelled_orders_count / all_orders_count) * 100, 1) if all_orders_count else 0
+
     top_products = list(
-        qs.values(
+        sales_qs.values(
             'product_id',
             'product__name',
             'product__category__name',
@@ -67,7 +79,7 @@ def build_sales_insights(qs):
     )
 
     top_categories = list(
-        qs.values('product__category__name')
+        sales_qs.values('product__category__name')
         .annotate(
             sold_qty=Sum('quantity'),
             revenue=Sum(REVENUE_EXPR),
@@ -76,12 +88,26 @@ def build_sales_insights(qs):
     )
 
     top_brands = list(
-        qs.values('product__brand__name')
+        sales_qs.values('product__brand__name')
         .annotate(
             sold_qty=Sum('quantity'),
             revenue=Sum(REVENUE_EXPR),
         )
         .order_by('-revenue')[:5]
+    )
+
+    cancelled_products = list(
+        cancelled_qs.values(
+            'product__name',
+            'product__category__name',
+            'product__brand__name',
+        )
+        .annotate(
+            cancelled_qty=Sum('quantity'),
+            cancelled_revenue=Sum(REVENUE_EXPR),
+            cancelled_orders=Count('order', distinct=True),
+        )
+        .order_by('-cancelled_qty')[:5]
     )
 
     product_forecast = []
@@ -128,7 +154,7 @@ def build_sales_insights(qs):
     ][:3]
 
     trend_map = {}
-    for row in qs.filter(order__created_at__gte=trend_from).values(
+    for row in sales_qs.filter(order__created_at__gte=trend_from).values(
         'order__created_at',
     ).annotate(
         qty=Sum('quantity'),
@@ -177,6 +203,11 @@ def build_sales_insights(qs):
             f"У товара «{product['name']}» высокий спрос и остаток {product['stock_quantity']} шт. Стоит проверить склад."
         )
 
+    if cancelled_orders_count:
+        recommendations.append(
+            f"Отменено {cancelled_orders_count} заказов ({cancellation_rate}% от заказов в отчете) на сумму {money(cancelled['revenue'])}."
+        )
+
     return {
         'current_revenue': current_revenue,
         'previous_revenue': previous_revenue,
@@ -186,6 +217,11 @@ def build_sales_insights(qs):
         'top_products': top_products,
         'top_categories': top_categories,
         'top_brands': top_brands,
+        'cancelled_qty': cancelled['qty'] or 0,
+        'cancelled_revenue': cancelled['revenue'] or 0,
+        'cancelled_orders_count': cancelled_orders_count,
+        'cancellation_rate': cancellation_rate,
+        'cancelled_products': cancelled_products,
         'product_forecast': product_forecast,
         'low_stock_alerts': low_stock_alerts,
         'sales_trend': sales_trend,
@@ -305,7 +341,7 @@ class SalesReportAdmin(admin.ModelAdmin):
     def get_queryset(self, request):
         qs = super().get_queryset(request)
         return (
-            qs.filter(order__status__in=['paid', 'shipped', 'delivered'])
+            qs.filter(order__status__in=['paid', 'delivered', 'cancelled'])
               .select_related('product', 'product__category', 'product__brand', 'order')
               .annotate(order_created=F('order__created_at'),
                         total_sum=F('quantity') * F('price'))
@@ -339,11 +375,16 @@ class SalesReportAdmin(admin.ModelAdmin):
         except (AttributeError, KeyError):
             return response
 
-        totals = qs.aggregate(
+        active_qs = qs.filter(order__status__in=['paid', 'delivered'])
+        cancelled_qs = qs.filter(order__status='cancelled')
+        response.context_data['totals'] = active_qs.aggregate(
             total_qty=Sum('quantity'),
             total_revenue=Sum(REVENUE_EXPR),
         )
-        response.context_data['totals'] = totals
+        response.context_data['cancelled_totals'] = cancelled_qs.aggregate(
+            total_qty=Sum('quantity'),
+            total_revenue=Sum(REVENUE_EXPR),
+        )
         response.context_data['sales_insights'] = build_sales_insights(qs)
         return response
     

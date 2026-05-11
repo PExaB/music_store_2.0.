@@ -33,6 +33,16 @@
                     <strong>{{ sales_insights.low_stock_alerts|length }}</strong>
                     <small>товаров требуют внимания</small>
                 </div>
+                <div class="sales-ai-card sales-ai-card-danger">
+                    <span>Отмененные заказы</span>
+                    <strong>{{ sales_insights.cancelled_orders_count }}</strong>
+                    <small>{{ sales_insights.cancellation_rate }}% от заказов в отчете</small>
+                </div>
+                <div class="sales-ai-card sales-ai-card-danger">
+                    <span>Потерянная выручка</span>
+                    <strong>{{ sales_insights.cancelled_revenue|floatformat:2 }} руб.</strong>
+                    <small>{{ sales_insights.cancelled_qty }} отмененных товаров</small>
+                </div>
             </div>
 
             {% if sales_insights.recommendations %}
@@ -82,6 +92,37 @@
             </div>
 
             <div class="sales-ai-grid">
+                <div class="sales-ai-block sales-ai-block-wide">
+                    <h3>Отмененные заказы</h3>
+                    {% if sales_insights.cancelled_products %}
+                        <table>
+                            <thead>
+                                <tr>
+                                    <th>Товар</th>
+                                    <th>Отменено</th>
+                                    <th>Заказов</th>
+                                    <th>Сумма</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for product in sales_insights.cancelled_products %}
+                                    <tr>
+                                        <td>
+                                            <strong>{{ product.product__name }}</strong>
+                                            <small>{{ product.product__category__name }}{% if product.product__brand__name %} · {{ product.product__brand__name }}{% endif %}</small>
+                                        </td>
+                                        <td>{{ product.cancelled_qty }}</td>
+                                        <td>{{ product.cancelled_orders }}</td>
+                                        <td>{{ product.cancelled_revenue|floatformat:2 }} руб.</td>
+                                    </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    {% else %}
+                        <p class="sales-ai-empty">Отмененных заказов в текущем отчете нет.</p>
+                    {% endif %}
+                </div>
+
                 <div class="sales-ai-block">
                     <h3>Топ товаров</h3>
                     {% if sales_insights.top_products %}
@@ -185,10 +226,16 @@
     <table class="table totals-table">
         <tr>
             <!-- colspan подгони так, чтобы текст Итого был под нужной колонкой -->
-            <td colspan="1" style="text-align: right;"><strong>Итого:</strong></td>
+            <td colspan="1" style="text-align: right;"><strong>Итого продажи:</strong></td>
             <!-- здесь был total_qty — убираем его совсем -->
             <td style="text-align: right;">
                 <strong>{{ totals.total_revenue|floatformat:2 }} руб.</strong>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="1" style="text-align: right;"><strong>Отменено:</strong></td>
+            <td style="text-align: right;">
+                <strong>{{ cancelled_totals.total_revenue|floatformat:2 }} руб.</strong>
             </td>
         </tr>
     </table>

@@ -226,6 +226,47 @@ def cart_update(request, product_id):
 
 
 @login_required
+def order_history(request):
+    orders = (
+        Order.objects
+        .filter(user=request.user)
+        .prefetch_related('items__product', 'items__product__category', 'items__product__brand')
+        .order_by('-created_at')
+    )
+
+    status_badges = {
+        'pending': 'secondary',
+        'paid': 'primary',
+        'delivered': 'success',
+        'cancelled': 'danger',
+    }
+
+    context = {
+        'orders': orders,
+        'status_badges': status_badges,
+    }
+    return render(request, 'store/order_history.html', context)
+
+
+@login_required
+@require_http_methods(["POST"])
+def cancel_order(request, order_id):
+    order = get_object_or_404(Order, id=order_id, user=request.user)
+
+    if order.status not in {'pending', 'paid'}:
+        messages.error(request, "Этот заказ уже нельзя отменить.")
+        return redirect('store:order_history')
+
+    previous_status = order.status
+    order.status = 'cancelled'
+    order.save(update_fields=['status', 'updated_at'])
+    sync_order_stock_for_status(order, previous_status=previous_status)
+
+    messages.success(request, f"Заказ №{order.id} отменен.")
+    return redirect('store:order_history')
+
+
+@login_required
 @require_http_methods(["GET", "POST"])
 def checkout(request):
     cart = Cart(request)
@@ -305,8 +346,8 @@ def checkout(request):
                 messages.error(request, str(error))
             else:
                 cart.clear()
-                messages.success(request, f"Заказ №{order.id} успешно создан.")
-                return redirect('store:index')
+                messages.success(request, f"Заказ №{order.id} успешно оформлен и оплачен.")
+                return redirect('store:order_history')
 
     context = {
         'cart': cart,

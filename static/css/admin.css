@@ -96,6 +96,10 @@
     color: var(--body-fg);
 }
 
+.sales-ai-card-danger {
+    border-left: 4px solid #d64545;
+}
+
 .sales-ai-recommendations {
     margin-bottom: 16px;
     padding: 14px 16px;
@@ -141,6 +145,10 @@
     border-radius: 8px;
     background: var(--body-bg);
     color: var(--body-fg);
+}
+
+.sales-ai-block-wide {
+    grid-column: 1 / -1;
 }
 
 .sales-ai-block table {

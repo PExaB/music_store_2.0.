@@ -1,6 +1,8 @@
 from django.contrib import admin
+from django import forms
 from decimal import Decimal
 from .models import Brand, Category, Product, ProductImage, Order, OrderItem, Review
+from .inventory import STOCK_DEDUCTING_STATUSES, StockError, get_order_stock_errors, sync_order_stock_for_status
 from django.db.models import Count, DecimalField, ExpressionWrapper, F, Sum
 from rangefilter.filters import DateRangeFilterBuilder
 from django.utils.formats import number_format
@@ -211,8 +213,31 @@ class ProductAdmin(admin.ModelAdmin):
 
 admin.site.register(ProductImage)
 
+
+class OrderAdminForm(forms.ModelForm):
+    class Meta:
+        model = Order
+        fields = '__all__'
+
+    def clean(self):
+        cleaned_data = super().clean()
+        status = cleaned_data.get('status')
+
+        previous_status = None
+        if self.instance.pk:
+            previous_status = Order.objects.filter(pk=self.instance.pk).values_list('status', flat=True).first()
+
+        if previous_status not in STOCK_DEDUCTING_STATUSES and status in STOCK_DEDUCTING_STATUSES:
+            errors = get_order_stock_errors(self.instance)
+            if errors:
+                raise forms.ValidationError(errors)
+
+        return cleaned_data
+
+
 @admin.register(Order)
 class OrderAdmin(admin.ModelAdmin):
+    form = OrderAdminForm
     list_display = ("id", "user", "full_name", "status", "payment_method",
                     "total", "created_at")
     list_filter = ("status", "payment_method", "created_at")
@@ -233,6 +258,17 @@ class OrderAdmin(admin.ModelAdmin):
             "fields": ("notes", "created_at", "updated_at")
         }),
     )
+
+    def save_model(self, request, obj, form, change):
+        previous_status = None
+        if change:
+            previous_status = Order.objects.filter(pk=obj.pk).values_list('status', flat=True).first()
+
+        super().save_model(request, obj, form, change)
+        try:
+            sync_order_stock_for_status(obj, previous_status=previous_status)
+        except StockError as error:
+            self.message_user(request, str(error), level='ERROR')
 
 
 @admin.register(OrderItem)

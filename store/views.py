@@ -2,6 +2,7 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.http import HttpResponse, HttpResponseRedirect
 from .models import Product, Category, Brand, Review, Order, OrderItem
 from .cart import Cart
+from .inventory import StockError, sync_order_stock_for_status
 from django.db import transaction
 from django.db.models import Q, Count, Avg
 from django.contrib import messages
@@ -292,17 +293,15 @@ def checkout(request):
                     )
 
                     for item in order_items:
-                        product = item['product']
                         OrderItem.objects.create(
                             order=order,
-                            product=product,
+                            product=item['product'],
                             quantity=item['quantity'],
                             price=item['price'],
                         )
-                        product.stock_quantity -= item['quantity']
-                        product.in_stock = product.stock_quantity > 0
-                        product.save(update_fields=['stock_quantity', 'in_stock'])
-            except ValueError as error:
+
+                    sync_order_stock_for_status(order, previous_status='pending')
+            except (ValueError, StockError) as error:
                 messages.error(request, str(error))
             else:
                 cart.clear()

@@ -166,7 +166,6 @@ class Order(models.Model):
         default="pending",
         verbose_name="Статус"
     )
-
     # Информация о доставке
     shipping_address = models.TextField(
         verbose_name="Адрес доставки",
